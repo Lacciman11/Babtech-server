@@ -15,27 +15,65 @@ body {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     text-align: center;
     width: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
-input {
-    padding: 10px;
+form{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     width: 100%;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
 }
+
+
+
+
+
+.otp-input {
+    width: 100%;
+    height: 40px;
+    font-size: 24px;
+    text-align: center;
+    margin: 0 5px;
+    border-radius: 5px;
+    border: solid 1px rgb(180, 186, 197);
+  }
+
+
+.otp-input:focus{
+    outline: rgb(21 93 252) solid 1px;
+    border: none;
+}
+
+  .otp-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+  .otp-container>span{
+    font-size: 2em;
+    font-weight: bolder;
+  }
 
 button {
     padding: 10px;
-    background-color: #4CAF50;
+    background-color: rgb(21 93 252);
     color: white;
     border: none;
-    border-radius: 4px;
-    width: 100%;
+    border-radius: 5px;
+    width: 40%;
+    transition: 0.05s ease-in-out;
+    cursor:pointer;
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: rgb(4, 54, 163);
 }
 
 #message {

@@ -185,9 +185,10 @@ const forgotPassword = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const otp = Math.floor(100000 + Math.random() * 900000);
-    const redisKey = `reset_otp:${email}`;
+    const redisKey = `forgot:${email}`;
 
-    await redisClient.setEx(redisKey, 21600, otp.toString()); // 6 hours TTL (21600s)
+    // Store as plain string (no JSON) with shorter TTL (10 minutes)
+    await redisClient.setEx(redisKey, 600, otp.toString());
 
     // Compose frontend link with email
     const verifyLink = `${process.env.BACKEND_URL}/verify-otp?email=${encodeURIComponent(email)}`;
@@ -195,38 +196,63 @@ const forgotPassword = async (req, res) => {
     // Send email
     await sendOtp(email, otp, verifyLink);
 
-    res.status(200).json({ message: 'OTP and verification link sent to your email' });
+    res.status(200).json({ 
+      message: 'OTP and verification link sent to your email',
+      code: 'OTP_SENT'
+    });
 
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Server error',
+      code: 'SERVER_ERROR' 
+    });
   }
 };
 
 const verifyOtpForReset = async (req, res) => {
   const { email, otp } = req.body;
 
+  if (!email || !otp) {
+    return res.status(400).json({
+      error: 'Email and OTP are required',
+      code: 'MISSING_FIELDS'
+    });
+  }
+
   try {
-    const redisKey = `forgot:${email}`; // ✅ Corrected string template
+    const redisKey = `forgot:${email}`;
+    const storedOtp = await redisClient.get(redisKey);
 
-    const data = await redisClient.get(redisKey);
-    if (!data) {
-      return res.status(400).send('OTP expired or not requested');
+    if (!storedOtp) {
+      return res.status(400).json({
+        error: 'OTP expired or not requested',
+        code: 'OTP_EXPIRED'
+      });
     }
 
-    const parsed = JSON.parse(data);
-    if (parsed.otp !== parseInt(otp)) {
-      return res.status(400).send('Invalid OTP');
+    // Direct string comparison (no JSON parsing needed)
+    if (storedOtp !== otp.trim()) {
+      return res.status(400).json({
+        error: 'Invalid OTP',
+        code: 'INVALID_OTP'
+      });
     }
 
-    // OTP is valid – delete it and redirect to frontend reset password page
     await redisClient.del(redisKey);
 
-    // ✅ Corrected redirect string template
-    return res.redirect(`${process.env.FRONTEND_URL}/reset-password?email=${email}`);
+    // Return JSON instead of redirect
+    return res.json({
+      success: true,
+      redirect: `${process.env.FRONTEND_URL}?email=${encodeURIComponent(email)}`
+    });
+
   } catch (error) {
     console.error('OTP verification failed:', error);
-    return res.status(500).send('Server error');
+    return res.status(500).json({
+      error: 'Server error during OTP verification',
+      code: 'SERVER_ERROR'
+    });
   }
 };
 

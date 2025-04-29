@@ -24,10 +24,27 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Add this middleware before your routes
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self';" +
+    "connect-src 'self' http://localhost:5000 https://nomands.vercel.app;" +
+    "script-src 'self' 'unsafe-inline';" +
+    "style-src 'self' 'unsafe-inline';" +
+    "img-src 'self' data:;"
+  );
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/verify-otp', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'otp-verification.html'));
+  res.sendFile(path.join(__dirname, 'public','html', 'otp.html'));
+});
+
+app.get('/', (req, res) => {
+  res.status(200).json({ message: 'Server is up' });
 });
 
 app.use('/api', route);
