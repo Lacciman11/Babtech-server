@@ -1,29 +1,51 @@
 const bcrypt = require('bcryptjs');
-const User = require('../model/authSchema');
-const Otp = require('../model/otpSchema'); 
+const { Student, Admin } = require('../model/userSchema'); // Import both models
 const sendOtp = require('../utils/sentOtp');
 const jwt = require('jsonwebtoken');
 const redisClient = require('../config/redisClient');
 
+// Helper function to find a user (Student or Admin) by email
+const findUserByEmail = async (email) => {
+  let user = await Student.findOne({ email });
+  if (user) return { user, model: Student };
+  user = await Admin.findOne({ email });
+  if (user) return { user, model: Admin };
+  return null;
+};
+
 const register = async (req, res) => {
-  const { firstname, lastname, email, password } = req.body;
+  const { firstname, lastname, email, password, cohort, role } = req.body;
 
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: 'User already exists' });
+    // Check if user exists in either Student or Admin collection
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = Math.floor(100000 + Math.random() * 900000);
+
+    // Determine model based on role (default to Student if no role provided)
+    const isAdmin = role === 'admin';
+    const Model = isAdmin ? Admin : Student;
+
+    // Validate cohort for students
+    if (!isAdmin && !cohort) {
+      return res.status(400).json({ message: 'Cohort is required for students' });
+    }
 
     const userData = JSON.stringify({
       firstname,
       lastname,
       email,
       password: hashedPassword,
-      otp,
+      cohort: isAdmin ? undefined : cohort, // Cohort only for students
+      role: isAdmin ? 'admin' : 'student',
+      otp
     });
 
-    await redisClient.setEx(email, 6 * 60 * 60, userData); 
+    await redisClient.setEx(email, 6 * 60 * 60, userData);
 
     await sendOtp(email, otp);
 
@@ -34,13 +56,14 @@ const register = async (req, res) => {
   }
 };
 
-
 const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
   try {
     const data = await redisClient.get(email);
-    if (!data) return res.status(400).json({ message: 'OTP expired or not requested' });
+    if (!data) {
+      return res.status(400).json({ message: 'OTP expired or not requested' });
+    }
 
     const parsed = JSON.parse(data);
 
@@ -48,12 +71,18 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
 
-    const user = new User({
+    // Determine model based on role
+    const isAdmin = parsed.role === 'admin';
+    const Model = isAdmin ? Admin : Student;
+
+    const user = new Model({
       firstname: parsed.firstname,
       lastname: parsed.lastname,
       email: parsed.email,
       password: parsed.password,
-      isVerified: true,
+      cohort: isAdmin ? undefined : parsed.cohort, // Cohort only for students
+      role: isAdmin ? 'admin' : 'student',
+      isVerified: true
     });
 
     await user.save();
@@ -70,10 +99,13 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
+    // Find user in either Student or Admin collection
+    const userData = await findUserByEmail(email);
+    if (!userData) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
+
+    const { user, model: Model } = userData;
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -85,38 +117,41 @@ const login = async (req, res) => {
       email: user.email,
       firstname: user.firstname,
       lastname: user.lastname,
-      role: user.role, 
+      role: user.role
     };
 
-    const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+    const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
+      expiresIn: '1h'
+    });
 
-    const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+    const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
+      expiresIn: '7d'
+    });
 
-    user.refreshToken = refreshToken; // Storing refresh token in the user's document
+    user.refreshToken = refreshToken;
     await user.save();
 
     res
       .cookie('accessToken', accessToken, {
-        httpOnly: true, 
-        secure: process.env.NODE_ENV === 'production', 
-        maxAge: 60 * 60 * 1000, 
-        sameSite: 'strict', 
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 1000,
+        sameSite: 'strict'
       })
       .status(200)
       .json({
         message: 'Login successful',
-        refreshToken, // Send the refresh token in the response body
+        refreshToken,
         user: {
           id: user._id,
           firstname: user.firstname,
           lastname: user.lastname,
           email: user.email,
-          role: user.role,
-        },
+          role: user.role
+        }
       });
-
   } catch (err) {
-    // Catch any error and return a server error response
+    console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -124,27 +159,29 @@ const login = async (req, res) => {
 const refreshAccessToken = async (req, res) => {
   const { refreshToken } = req.body;
 
-  if (!refreshToken) return res.status(401).json({ message: 'Refresh token missing' });
+  if (!refreshToken) {
+    return res.status(401).json({ message: 'Refresh token missing' });
+  }
 
   try {
-    // Verify token
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-    // Find the user who owns this refresh token
-    const user = await User.findOne({ _id: decoded.id, refreshToken });
+    // Find user in either Student or Admin collection
+    const userData = await findUserByEmail(decoded.email);
+    if (!userData || userData.user.refreshToken !== refreshToken) {
+      return res.status(403).json({ message: 'Invalid refresh token' });
+    }
 
-    if (!user) return res.status(403).json({ message: 'Invalid refresh token' });
+    const { user, model: Model } = userData;
 
-    // Generate new access token
     const newAccessToken = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       process.env.ACCESS_TOKEN_SECRET,
       { expiresIn: '1h' }
     );
 
-    // Optionally: Generate and update a new refresh token
     const newRefreshToken = jwt.sign(
-      { id: user._id },
+      { id: user._id, email: user.email, role: user.role },
       process.env.REFRESH_TOKEN_SECRET,
       { expiresIn: '7d' }
     );
@@ -152,13 +189,12 @@ const refreshAccessToken = async (req, res) => {
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    // Send new tokens
     res
       .cookie('accessToken', newAccessToken, {
         httpOnly: true,
-        maxAge: 60 * 60 * 1000, // 1 hour
+        maxAge: 60 * 60 * 1000,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'strict'
       })
       .status(200)
       .json({
@@ -168,8 +204,8 @@ const refreshAccessToken = async (req, res) => {
           firstname: user.firstname,
           lastname: user.lastname,
           email: user.email,
-          role: user.role,
-        },
+          role: user.role
+        }
       });
   } catch (error) {
     console.error('Refresh error:', error);
@@ -181,31 +217,29 @@ const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const userData = await findUserByEmail(email);
+    if (!userData) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     const redisKey = `forgot:${email}`;
 
-    // Store as plain string (no JSON) with shorter TTL (10 minutes)
     await redisClient.setEx(redisKey, 600, otp.toString());
 
-    // Compose frontend link with email
     const verifyLink = `${process.env.BACKEND_URL}/verify-otp?email=${encodeURIComponent(email)}`;
 
-    // Send email
     await sendOtp(email, otp, verifyLink);
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: 'OTP and verification link sent to your email',
       code: 'OTP_SENT'
     });
-
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error',
-      code: 'SERVER_ERROR' 
+      code: 'SERVER_ERROR'
     });
   }
 };
@@ -231,7 +265,6 @@ const verifyOtpForReset = async (req, res) => {
       });
     }
 
-    // Direct string comparison (no JSON parsing needed)
     if (storedOtp !== otp.trim()) {
       return res.status(400).json({
         error: 'Invalid OTP',
@@ -241,12 +274,10 @@ const verifyOtpForReset = async (req, res) => {
 
     await redisClient.del(redisKey);
 
-    // Return JSON instead of redirect
     return res.json({
       success: true,
       redirect: `${process.env.FRONTEND_URL}?email=${encodeURIComponent(email)}`
     });
-
   } catch (error) {
     console.error('OTP verification failed:', error);
     return res.status(500).json({
@@ -260,28 +291,30 @@ const resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const userData = await findUserByEmail(email);
+    if (!userData) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { user, model: Model } = userData;
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
 
     res.status(200).json({ message: 'Password reset successful' });
-
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-
 module.exports = {
-                    login, 
-                    register, 
-                    verifyOtp, 
-                    refreshAccessToken, 
-                    forgotPassword, 
-                    verifyOtpForReset, 
-                    resetPassword
-                  };
+  login,
+  register,
+  verifyOtp,
+  refreshAccessToken,
+  forgotPassword,
+  verifyOtpForReset,
+  resetPassword
+};
