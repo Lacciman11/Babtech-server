@@ -23,7 +23,7 @@ const studentSchema = new mongoose.Schema({
     lastname: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, default: 'admin' },
+    role: { type: String, enum: ['admin', 'instructor'], default: 'admin' },
     refreshToken: { type: String }, // Optional: for storing refresh token
    }, { timestamps: true });
 

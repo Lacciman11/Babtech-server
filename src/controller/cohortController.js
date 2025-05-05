@@ -1,5 +1,5 @@
-const Cohort = require('./models/Cohort');
-const Student = require('./models/Student'); // Assuming you have a Student model
+const Cohort = require('../model/cohortSchema');
+const {Student} = require('../model/userSchema'); // Assuming you have a Student model
 
 /**
  * @desc    Create a new cohort
@@ -208,7 +208,7 @@ module.exports = {
   getAllCohorts,
   getCohortById,
   addStudentToCohort,
-  getAllStudentsInCohort,
+  getAllStudentsInCohort, 
   getStudentInCohort,  
   updateCohort,
   deleteCohort
