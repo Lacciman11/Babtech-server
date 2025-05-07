@@ -6,7 +6,9 @@ const morganMiddleware = require('./src/middleware/morgan');
 const rateLimitMiddleware = require('./src/middleware/rateLimit');
 const corsMiddleware = require('./src/middleware/cors');
 const securityHeaders = require('./src/middleware/securityHeaders');
-const route = require('./src/route/authRoute');
+const authRoute = require('./src/route/authRoute');
+const cohortRoute = require('./src/route/cohortRoute');
+// const examRoute = require('./src/route/examRoute');
 const cookieParser = require('cookie-parser');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -75,7 +77,8 @@ app.get('/', (req, res) => {
   res.status(200).json({ message: 'Server is up' });
 });
 
-app.use('/api', route);
+app.use('/api', authRoute);
+app.use('/api/cohorts', cohortRoute);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

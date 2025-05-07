@@ -89,7 +89,7 @@ const { authMiddleware, isAdmin, isAdminOrInstructor } = require('../middleware/
  *       500:
  *         description: Server error
  */
-router.post('/', authMiddleware, isAdmin, createCohort);
+router.post('/', createCohort);
 
 /**
  * @swagger
@@ -115,7 +115,7 @@ router.post('/', authMiddleware, isAdmin, createCohort);
  *       500:
  *         description: Server error
  */
-router.get('/', authMiddleware, isAdminOrInstructor, getAllCohorts);
+router.get('/', getAllCohorts);
 
 /**
  * @swagger
@@ -148,7 +148,7 @@ router.get('/', authMiddleware, isAdminOrInstructor, getAllCohorts);
  *       500:
  *         description: Server error
  */
-router.get('/:id', authMiddleware, isAdminOrInstructor, getCohortById);
+router.get('/:id', getCohortById);
 
 /**
  * @swagger
@@ -193,7 +193,7 @@ router.get('/:id', authMiddleware, isAdminOrInstructor, getCohortById);
  *       500:
  *         description: Server error
  */
-router.patch('/:id/students', authMiddleware, isAdmin, addStudentToCohort);
+router.patch('/:id/students', addStudentToCohort);
 
 /**
  * @swagger
@@ -228,7 +228,7 @@ router.patch('/:id/students', authMiddleware, isAdmin, addStudentToCohort);
  *       500:
  *         description: Server error
  */
-router.get('/:id/students', authMiddleware, isAdminOrInstructor, getAllStudentsInCohort);
+router.get('/:id/students', getAllStudentsInCohort);
 
 /**
  * @swagger
@@ -267,7 +267,7 @@ router.get('/:id/students', authMiddleware, isAdminOrInstructor, getAllStudentsI
  *       500:
  *         description: Server error
  */
-router.get('/:cohortId/students/:studentId', authMiddleware, isAdminOrInstructor, getStudentInCohort);
+router.get('/:cohortId/students/:studentId', getStudentInCohort);
 
 /**
  * @swagger
@@ -308,7 +308,7 @@ router.get('/:cohortId/students/:studentId', authMiddleware, isAdminOrInstructor
  *       500:
  *         description: Server error
  */
-router.put('/:id', authMiddleware, isAdmin, updateCohort);
+router.put('/:id', updateCohort);
 
 /**
  * @swagger
@@ -345,7 +345,7 @@ router.put('/:id', authMiddleware, isAdmin, updateCohort);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', authMiddleware, isAdmin, deleteCohort);
+router.delete('/:id', deleteCohort);
 
 /**
  * @swagger
