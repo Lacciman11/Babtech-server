@@ -1,10 +1,13 @@
 const cors = require('cors');
 
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://127.0.0.1','https://nomands.vercel.app'],
+  origin: (origin, callback) => {
+    callback(null, true); // Accept all origins dynamically
+  },
   methods: ['POST', 'GET', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 };
+
 
 module.exports = cors(corsOptions);
