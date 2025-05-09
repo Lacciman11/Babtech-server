@@ -14,7 +14,7 @@ const studentSchema = new mongoose.Schema({
   testWritten: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Test'
+      ref: 'Exam'
     }
   ]}, { timestamps: true });
 

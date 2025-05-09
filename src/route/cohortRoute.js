@@ -10,7 +10,7 @@ const {
   updateCohort,
   deleteCohort
 } = require('../controller/cohortController');
-const { authMiddleware, isAdmin, isAdminOrInstructor } = require('../middleware/roleAuth');
+// const { authMiddleware, isAdmin, isAdminOrInstructor } = require('../middleware/roleAuth');
 
 /**
  * @swagger

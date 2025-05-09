@@ -227,7 +227,7 @@ const forgotPassword = async (req, res) => {
 
     await redisClient.setEx(redisKey, 600, otp.toString());
 
-    const verifyLink = `${process.env.BACKEND_URL}/verify-otp?email=${encodeURIComponent(email)}`;
+    const verifyLink = `${process.env.BACKEND_URL}/reset_password/verify-otp?email=${encodeURIComponent(email)}`;
 
     await sendOtp(email, otp, verifyLink);
 
