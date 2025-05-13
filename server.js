@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./src/config/dbConfig');
 const morganMiddleware = require('./src/middleware/morgan');
 const rateLimitMiddleware = require('./src/middleware/rateLimit');
-const corsMiddleware = require('./src/middleware/cors');
+// const corsMiddleware = require('./src/middleware/cors');
 const securityHeaders = require('./src/middleware/securityHeaders');
 const authRoute = require('./src/route/authRoute');
 const cohortRoute = require('./src/route/cohortRoute');
@@ -12,9 +12,19 @@ const cohortRoute = require('./src/route/cohortRoute');
 const cookieParser = require('cookie-parser');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
+const cors = require('cors');
+const nodemailer = require('nodemailer');
 
 dotenv.config();
 connectDB();
+// Set up CORS options
+const corsOptions = {
+  origin: ["http://localhost:3000", "https://nomands.vercel.app"],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+};
+// Initialize CORS middleware
+const corsMiddleware = cors(corsOptions);
 
 const app = express();
 
@@ -79,6 +89,33 @@ app.get('/', (req, res) => {
 
 app.use('/api', authRoute);
 app.use('/api/cohorts', cohortRoute);
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+});
+// Endpoint to send score email
+// This endpoint is for sending the score email after the quiz
+app.post('/send-score', async (req, res) => {
+  const { email, score } = req.body;
+
+  try {
+    await transporter.sendMail({
+      from: 'React Quiz App <your_email@gmail.com>',
+      to: email,
+      subject: 'Your React Quiz Score',
+      html: `<p>Thank you for completing the test.</p><h3>Your Score: ${score}/30</h3>`,
+    });
+    res.status(200).json({ message: 'Email sent!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to send email' });
+  }
+});
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
