@@ -2,7 +2,7 @@ const cors = require('cors');
 
 const corsOptions = {
   origin: (origin, callback) => {
-    const isLocalhost3000 = origin === 'http://localhost:3000';
+    const isLocalhost3000 = origin === 'http://localhost:5000';
     const isLocalIP = /^http:\/\/\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(origin || '');
     const allowedOrigins = ['https://nomands.vercel.app'];
 
