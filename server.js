@@ -104,7 +104,7 @@ app.post('/send-score', async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from: 'React Quiz App <your_email@gmail.com>',
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Your React Quiz Score',
       html: `<p>Thank you for completing the test.</p><h3>Your Score: ${score}/30</h3>`,
